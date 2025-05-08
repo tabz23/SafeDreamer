@@ -89,8 +89,60 @@ for _ in trange(100):
     for i in range(1000):
         obs, reward, done, info = train_envs.step(action[0])
         obs = {k: np.expand_dims(np.array(obs[k]),axis=0) for k in obs}
-        action, agent_state, embed = agent(obs, agent_state)
-        (latent, _) = agent_state
+        action, agent_state, embed = agent(obs, agent_state) #agent_state = ( latent , prev_action )
+        (latent, _) = agent_state ## latent contains h and z
+
+## 1) below is executed when we call agent(obs, agent state)
+#     def _policy(self, obs, state, training):
+#         if state is None:
+#             latent = action = None
+#         else:
+#             latent, action = state
+#         obs = self._wm.preprocess(obs)
+# #This is Zt encoded, pure perceptual representation of the raw image and state vector
+#         embed = self._wm.encoder(obs) 
+# #It uses the previous latent and previous action to generate a prior p(zt)
+# #Then, it corrects this with the current embed (the encoded x(t) which is the embed) to sample from a posterior q(zt/ht prior, embed)->zt posterior
+#         latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"])
+#         if self._config.eval_state_mean:
+#             latent["stoch"] = latent["mean"]
+#         feat = self._wm.dynamics.get_feat(latent)
+#         if not training:
+#             actor = self._task_behavior.actor(feat)
+#             action = actor.mode()
+#         elif self._should_expl(self._step):
+#             actor = self._expl_behavior.actor(feat)
+#             action = actor.sample()
+#         else:
+#             actor = self._task_behavior.actor(feat)
+# ##imp note the actor takes feat as input meaning concat of z and h
+#             action = actor.sample()
+#         logprob = actor.log_prob(action)
+#         latent = {k: v.detach() for k, v in latent.items()}
+#         action = action.detach()
+#         if self._config.actor["dist"] == "onehot_gumble":
+#             action = torch.one_hot(
+#                 torch.argmax(action, dim=-1), self._config.num_actions
+#             )
+#         policy_output = {"action": action, "logprob": logprob}
+#         state = (latent, action)
+#         return policy_output, state, embed
+
+
+​
+
+# 2)
+    # def get_feat(self, state):
+        # stoch = state["stoch"]
+        # if self._discrete:
+        #     shape = list(stoch.shape[:-2]) + [self._stoch * self._discrete]
+        #     stoch = stoch.reshape(shape)
+        # return torch.cat([stoch, state["deter"]], -1)
+        
+# where 
+#     "deter" → deterministic RNN state h(t)
+#     "stoch" → stochastic state sample z(t)
+
         feat = agent._wm.dynamics.get_feat(latent)
         value = agent._task_behavior.value(feat).mode()
         feat = feat.detach().cpu().numpy()
