@@ -90,20 +90,6 @@ for _ in trange(100):
         obs, reward, done, info = train_envs.step(action[0])
         
 #####
-        # risk = np.concatenate([obs_dict["vases_lidar"],obs_dict["hazards_lidar"]]).max()
-        # if risk > 0.8:
-        #     cost = risk - 0.8
-        # else:
-        #     cost = 0
-        # obs = {}
-        # obs_dict = self.transform_obs(obs_dict)
-        # obs["image"] = obs_dict["vision"]
-        # obs["vector"] = obs_dict["vector"]
-        # obs["is_terminal"] = terminated or truncated
-        # obs["is_first"] = False
-        # done = terminated or truncated
-        # return obs, -cost, done, info
-
         # for key, value in obs.items():
         #     try:
         #         print(f"{key}: shape = {value.shape}")
