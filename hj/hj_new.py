@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys 
+sys.path.append("dreamerv3-torch")
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -19,7 +21,8 @@ class SafetyQDataset(Dataset):
             s, actions, costs = pickle.load(f)
         self.latents = s["latent"]
         self.embs = s["emb"]
-        self.values = s["value"]
+        self.costs = costs
+
         
 
     def __len__(self):
@@ -28,8 +31,9 @@ class SafetyQDataset(Dataset):
     def __getitem__(self, idx):
         latent = {k:torch.tensor(self.latents[k][idx], dtype=torch.float32) for k in self.latents.keys()}
         embs = torch.tensor(self.embs[idx], dtype=torch.float32)
-        value = torch.tensor(self.values[idx], dtype=torch.float32)
-        return latent, embs, value
+        costs = torch.tensor(self.costs[idx], dtype=torch.float32)
+        # print("costs",costs)
+        return latent, embs, costs
 
 # 2. Q-Network Definition
 # Q: (s, a) --> scalar. Input dim: state (4) concatenated with action (2) = 6.
@@ -67,7 +71,7 @@ def train_safety_q(q_net, target_net, dataloader, candidate_actions, agent,
     
     for epoch in range(num_epochs):
         epoch_loss = 0.0
-        torch.save(q_net.state_dict(), "hj100.pt")
+        torch.save(q_net.state_dict(), f"hj/hj_checkpts/hj{epoch}.pt")
         for l, embs, h_s in tqdm(dataloader):
             embs = embs.to(device)
             l = {k: v.to(device) for k, v in l.items()}

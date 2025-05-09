@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+sys.path.append("dreamerv3-torch")
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader

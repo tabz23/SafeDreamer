@@ -1,7 +1,7 @@
 import gymnasium as gym
 import torch, numpy as np, torch.nn as nn
 # import tianshou as ts
-from formularone_modifiedreward import SafeGymnasium
+from formularone import SafeGymnasium
 import os
 import sys
 import ruamel.yaml as yaml
@@ -45,7 +45,7 @@ agent = Dreamer(
         None,
         None,
     ).to(config.device)
-state_dict = torch.load("reaching.pt")
+state_dict = torch.load("cost.pt")
 new_state_dict = {}
 for key in list(state_dict["agent_state_dict"].keys()):
     if 'orig_mod.' in key:
@@ -72,6 +72,7 @@ from tqdm import trange
 for _ in trange(100):
     cost = 0
     obs = train_envs.reset()
+    # obs["image"] = cv2.resize(obs["image"], (128, 128)) 
     obs = {k: np.expand_dims(np.array(obs[k]),axis=0) for k in obs}
     action, agent_state, embed = agent(obs, agent_state)
     (latent, _) = agent_state
@@ -88,46 +89,60 @@ for _ in trange(100):
     episode_embs = []
     for i in range(1000):
         obs, reward, done, info = train_envs.step(action[0])
-        
-#####
-        # risk = np.concatenate([obs_dict["vases_lidar"],obs_dict["hazards_lidar"]]).max()
-        # if risk > 0.8:
-        #     cost = risk - 0.8
-        # else:
-        #     cost = 0
-        # obs = {}
-        # obs_dict = self.transform_obs(obs_dict)
-        # obs["image"] = obs_dict["vision"]
-        # obs["vector"] = obs_dict["vector"]
-        # obs["is_terminal"] = terminated or truncated
-        # obs["is_first"] = False
-        # done = terminated or truncated
-        # return obs, -cost, done, info
-
-        # for key, value in obs.items():
-        #     try:
-        #         print(f"{key}: shape = {value.shape}")
-        #     except AttributeError:
-        #         print(f"{key}: type = {type(value)}, value = {value}")
-                    # is_first: type = <class 'bool'>, value = False
-                    # image: shape = (128, 128, 3)
-                    # vector: shape = (40,)
-                    # is_terminal: type = <class 'bool'>, value = False
-                    # is_first: type = <class 'bool'>, value = False
-                    # image: shape = (128, 128, 3)
-                    # vector: shape = (40,)
-                    # is_terminal: type = <class 'bool'>, value = False
-        # import cv2
-        # image = obs["image"]
-        # cv2.imshow("Observation", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-        # print(f"Reward: {reward}")
-        # cv2.waitKey(10)  # Required to refresh the window
-        # # train_envs.render()
-
-#####
+        # obs["image"] = cv2.resize(obs["image"], (128, 128)) 
         obs = {k: np.expand_dims(np.array(obs[k]),axis=0) for k in obs}
         action, agent_state, embed = agent(obs, agent_state) #agent_state = ( latent , prev_action )
         (latent, _) = agent_state ## latent contains h and z
+
+## 1) below is executed when we call agent(obs, agent state)
+#     def _policy(self, obs, state, training):
+#         if state is None:
+#             latent = action = None
+#         else:
+#             latent, action = state
+#         obs = self._wm.preprocess(obs)
+# #This is Zt encoded, pure perceptual representation of the raw image and state vector
+#         embed = self._wm.encoder(obs) 
+# #It uses the previous latent and previous action to generate a prior p(zt)
+# #Then, it corrects this with the current embed (the encoded x(t) which is the embed) to sample from a posterior q(zt/ht prior, embed)->zt posterior
+#         latent, _ = self._wm.dynamics.obs_step(latent, action, embed, obs["is_first"])
+#         if self._config.eval_state_mean:
+#             latent["stoch"] = latent["mean"]
+#         feat = self._wm.dynamics.get_feat(latent)
+#         if not training:
+#             actor = self._task_behavior.actor(feat)
+#             action = actor.mode()
+#         elif self._should_expl(self._step):
+#             actor = self._expl_behavior.actor(feat)
+#             action = actor.sample()
+#         else:
+#             actor = self._task_behavior.actor(feat)
+# ##imp note the actor takes feat as input meaning concat of z and h
+#             action = actor.sample()
+#         logprob = actor.log_prob(action)
+#         latent = {k: v.detach() for k, v in latent.items()}
+#         action = action.detach()
+#         if self._config.actor["dist"] == "onehot_gumble":
+#             action = torch.one_hot(
+#                 torch.argmax(action, dim=-1), self._config.num_actions
+#             )
+#         policy_output = {"action": action, "logprob": logprob}
+#         state = (latent, action)
+#         return policy_output, state, embed
+
+
+# 2)
+    # def get_feat(self, state):
+        # stoch = state["stoch"]
+        # if self._discrete:
+        #     shape = list(stoch.shape[:-2]) + [self._stoch * self._discrete]
+        #     stoch = stoch.reshape(shape)
+        # return torch.cat([stoch, state["deter"]], -1)
+        
+# where 
+#     "deter" → deterministic RNN state h(t)
+#     "stoch" → stochastic state sample z(t)
+
         feat = agent._wm.dynamics.get_feat(latent)
         value = agent._task_behavior.value(feat).mode()
         feat = feat.detach().cpu().numpy()
